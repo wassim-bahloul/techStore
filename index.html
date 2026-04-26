@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>TechStore Admin — Tableau de Bord et Produits</title>
+<style>
+.tab-active{background:#1e2435;border:1px solid #3b82f6;color:#3b82f6}
+.tab-inactive{background:none;border:none;color:#64748b}
+.cat-selected{background:#1e2435;border:none;border-left:3px solid #3b82f6;color:#e2e8f0}
+.cat-unselected{background:none;border:none;border-left:3px solid transparent;color:#64748b}
+.stock-zero{color:#ef4444;background:rgba(239,68,68,.15)}
+.stock-low{color:#f59e0b;background:rgba(245,158,11,.15)}
+.stock-ok{color:#10b981;background:rgba(16,185,129,.15)}
+</style>
+</head>
+<body bgcolor="#0d0f14" text="#e2e8f0" style="font-family: Segoe UI, Arial, sans-serif; font-size: 19px; line-height: 1.4; margin: 0; padding: 0;">
+
+<!-- TOP BAR -->
+<table width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="#161a23">
+<tr>
+  <td align="left" width="40%" style="padding: 12px 24px;">
+    <b style="font-size: 1.2em; color: #3b82f6;">Tech<span style="color: #e2e8f0;">Store</span> <small style="font-size: 0.7em; color: #64748b; font-weight: normal;">Admin</small></b>
+  </td>
+  <td align="right" width="60%" style="padding: 12px 24px; border-left: 1px solid #2a3045;">
+    <form method="POST" action="index.php" style="display: inline;">
+      <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+      <?php if ($dashboard_filter !== 'all'): ?><input type="hidden" name="dashboard_filter" value="<?php echo htmlspecialchars($dashboard_filter); ?>"><?php endif; ?>
+      <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+      <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+      <button type="submit" name="tab" value="dashboard" class="<?php echo $active_tab === 'dashboard' ? 'tab-active' : 'tab-inactive'; ?>" style="padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 0.9em; font-weight: 500; margin-right: 6px;">Tableau de bord</button>
+      <button type="submit" name="tab" value="produits" class="<?php echo $active_tab === 'produits' ? 'tab-active' : 'tab-inactive'; ?>" style="padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 0.9em; font-weight: 500;">Produits</button>
+    </form>
+  </td>
+</tr>
+</table>
+
+<!-- MESSAGE -->
+<?php if ($message && $message_type === 'success'): ?>
+<table width="100%" border="0" cellpadding="0" cellspacing="0">
+<tr>
+  <td style="padding: 12px 24px; background: rgba(16,185,129,.08); border-left: 4px solid #10b981; color: #10b981; font-weight: bold;">
+    <?php echo $message; ?>
+  </td>
+</tr>
+</table>
+<?php endif; ?>
+
+<table width="100%" border="0" cellpadding="0" cellspacing="0">
+<tr>
+  <!-- SIDEBAR -->
+  <td width="220" bgcolor="#161a23" valign="top" style="border-right: 1px solid #2a3045; padding: 16px 0;">
+    <div style="padding: 0 16px 12px; font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; border-bottom: 1px solid #2a3045; margin-bottom: 8px;"><b>Catégories</b></div>
+    
+    <?php foreach ($categories as $cat): ?>
+    <?php $is_cat_selected = ($selected_category_id === intval($cat['id'])); ?>
+    <?php $can_delete_category = (intval($cat['nb_produits']) === 0 || intval($cat['nb_disponibles']) === 0); ?>
+    <div style="display: flex; align-items: center; gap: 6px; margin: 0; padding: 0 0 0 0;">
+      <form method="POST" action="index.php" style="margin: 0; flex: 1 1 auto;">
+        <input type="hidden" name="categorie_filter" value="<?php echo intval($cat['id']); ?>">
+        <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
+        <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+        <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+        <button type="submit" class="<?php echo $is_cat_selected ? 'cat-selected' : 'cat-unselected'; ?>" style="width: 100%; text-align: left; padding: 9px 16px; cursor: pointer; font-size: 0.875em; display: flex; align-items: center; gap: 10px;">
+          <span><?php echo htmlspecialchars($cat['nom']); ?></span>
+        </button>
+      </form>
+      <?php if ($can_delete_category): ?>
+      <form method="POST" action="index.php" style="margin: 0; flex: 0 0 auto;" onsubmit="return confirm('Supprimer cette catégorie ? Les produits en rupture seront aussi supprimés.');">
+        <input type="hidden" name="action" value="delete_cat">
+        <input type="hidden" name="id" value="<?php echo intval($cat['id']); ?>">
+        <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
+        <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+        <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+        <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+        <?php if ($dashboard_filter !== 'all'): ?><input type="hidden" name="dashboard_filter" value="<?php echo htmlspecialchars($dashboard_filter); ?>"><?php endif; ?>
+        <button type="submit" style="height: 100%; padding: 4px 8px; background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.35); color: #ef4444; border-radius: 8px; cursor: pointer; font-size: 0.7em; line-height: 1; min-width: 28px;">-</button>
+      </form>
+      <?php endif; ?>
+      <span style="background: #1e2435; color: #64748b; font-size: 0.7em; padding: 1px 7px; border-radius: 20px; border: 1px solid #2a3045; display: inline-flex; align-items: center; white-space: nowrap;"><?php echo $cat['nb_produits']; ?></span>
+    </div>
+    <?php endforeach; ?>
+
+    <form method="POST" action="index.php" style="margin: 8px 0 0;">
+      <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
+      <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+      <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+      <button type="submit" style="width: 100%; text-align: left; padding: 9px 16px; background: none; border: none; border-left: 3px solid transparent; cursor: pointer; font-size: 0.875em; color: #64748b;">Tous les produits</button>
+    </form>
+    
+    <form method="POST" action="index.php" style="margin-top: 12px; padding: 0 16px;">
+      <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
+      <input type="hidden" name="show_add_cat" value="1">
+      <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+      <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+      <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+      <?php if ($dashboard_filter !== 'all'): ?><input type="hidden" name="dashboard_filter" value="<?php echo htmlspecialchars($dashboard_filter); ?>"><?php endif; ?>
+      <button type="submit" style="width: 100%; padding: 8px; background: none; border: 1px dashed #2a3045; color: #64748b; border-radius: 8px; cursor: pointer; font-size: 0.82em;">+ Nouvelle catégorie</button>
+    </form>
+
+    <?php if ($show_add_category_form): ?>
+    <form method="POST" action="index.php" style="margin-top: 8px; padding: 0 16px;">
+      <input type="hidden" name="action" value="add_cat">
+      <input type="hidden" name="tab" value="<?php echo htmlspecialchars($active_tab); ?>">
+      <input type="hidden" name="show_add_cat" value="1">
+      <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+      <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+      <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+      <?php if ($dashboard_filter !== 'all'): ?><input type="hidden" name="dashboard_filter" value="<?php echo htmlspecialchars($dashboard_filter); ?>"><?php endif; ?>
+      <input type="text" name="nom" placeholder="Nom catégorie" required style="width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 9px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px; font-size: 0.8em;">
+      <input type="text" name="description" placeholder="Description (optionnel)" style="width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 7px 9px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px; font-size: 0.8em;">
+      <button type="submit" style="width: 100%; padding: 8px; background: #3b82f6; border: none; color: #fff; border-radius: 8px; cursor: pointer; font-size: 0.82em;">Ajouter catégorie</button>
+    </form>
+    <?php endif; ?>
+  </td>
+
+  <!-- MAIN -->
+  <td valign="top" style="padding: 28px;">
+
+    <?php if ($active_tab === 'dashboard'): ?>
+    <h2 style="font-size: 2em; font-weight: 600; margin-bottom: 20px;">Tableau de bord</h2>
+
+    <form method="POST" action="index.php" data-auto-submit-form="1" style="margin: 0 0 16px;">
+      <input type="hidden" name="tab" value="dashboard">
+      <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+      <?php if ($dashboard_filter !== 'all'): ?><input type="hidden" name="dashboard_filter" value="<?php echo htmlspecialchars($dashboard_filter); ?>"><?php endif; ?>
+      <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+      <input type="text" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>" placeholder="Rechercher..." data-auto-submit="search" style="padding: 5px 7px; width: 200px; background: #0d0f14; border: 1px solid #2a3045; border-radius: 8px; color: #e2e8f0; margin-right: 6px;">
+      <span style="font-size: 0.85em; color: #64748b; margin-right: 6px;">Choix tri</span>
+      <select name="sort_choice" data-auto-submit="sort" style="padding: 5px 7px; background: #0d0f14; border: 1px solid #2a3045; border-radius: 8px; color: #e2e8f0;">
+        <option value="designation_asc" <?php echo ($sort_choice === 'designation_asc' ? 'selected' : ''); ?>>A-Z</option>
+        <option value="designation_desc" <?php echo ($sort_choice === 'designation_desc' ? 'selected' : ''); ?>>Z-A</option>
+        <option value="prix_asc" <?php echo ($sort_choice === 'prix_asc' ? 'selected' : ''); ?>>Prix croissant</option>
+        <option value="prix_desc" <?php echo ($sort_choice === 'prix_desc' ? 'selected' : ''); ?>>Prix décroissant</option>
+        <option value="marque_asc" <?php echo ($sort_choice === 'marque_asc' ? 'selected' : ''); ?>>Marque A-Z</option>
+        <option value="marque_desc" <?php echo ($sort_choice === 'marque_desc' ? 'selected' : ''); ?>>Marque Z-A</option>
+        <option value="quantite_asc" <?php echo ($sort_choice === 'quantite_asc' ? 'selected' : ''); ?>>Stock croissant</option>
+        <option value="quantite_desc" <?php echo ($sort_choice === 'quantite_desc' ? 'selected' : ''); ?>>Stock décroissant</option>
+      </select>
+    </form>
+    
+    <table border="0" cellpadding="0" cellspacing="18">
+    <tr>
+      <td style="text-align: left; background: #161a23; border: 1px solid #2a3045; border-radius: 10px; padding: 18px; width: 190px;">
+        <form method="POST" action="index.php" style="margin: 0;">
+          <input type="hidden" name="tab" value="dashboard">
+          <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+          <input type="hidden" name="dashboard_filter" value="all">
+          <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+          <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+          <button type="submit" style="width: 100%; text-align: left; background: transparent; border: none; color: inherit; cursor: pointer; padding: 0;">
+            <div style="font-size: 0.85em; color: #64748b; text-transform: uppercase;">Total produits</div>
+            <div style="font-size: 2.05em; font-weight: 700; margin-top: 4px; color: #3b82f6;"><?php echo $stats['total_produits']; ?></div>
+          </button>
+        </form>
+      </td>
+      <td style="text-align: left; background: #161a23; border: 1px solid #2a3045; border-radius: 10px; padding: 18px; width: 190px;">
+        <form method="POST" action="index.php" style="margin: 0;">
+          <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+          <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+          <button type="submit" name="tab" value="produits" style="width: 100%; text-align: left; background: transparent; border: none; color: inherit; cursor: pointer; padding: 0;">
+            <div style="font-size: 0.85em; color: #64748b; text-transform: uppercase;">Catégories</div>
+            <div style="font-size: 2.05em; font-weight: 700; margin-top: 4px; color: #10b981;"><?php echo $stats['total_categories']; ?></div>
+          </button>
+        </form>
+      </td>
+      <td style="text-align: left; background: #161a23; border: 1px solid #2a3045; border-radius: 10px; padding: 18px; width: 190px;">
+        <form method="POST" action="index.php" style="margin: 0;">
+          <input type="hidden" name="tab" value="dashboard">
+          <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+          <input type="hidden" name="dashboard_filter" value="rupture">
+          <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+          <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+          <button type="submit" style="width: 100%; text-align: left; background: transparent; border: none; color: inherit; cursor: pointer; padding: 0;">
+            <div style="font-size: 0.85em; color: #64748b; text-transform: uppercase;">En rupture</div>
+            <div style="font-size: 2.05em; font-weight: 700; margin-top: 4px; color: #ef4444;"><?php echo $stats['rupture']; ?></div>
+          </button>
+        </form>
+      </td>
+      <td style="text-align: left; background: #161a23; border: 1px solid #2a3045; border-radius: 10px; padding: 18px; width: 190px;">
+        <form method="POST" action="index.php" style="margin: 0;">
+          <input type="hidden" name="tab" value="dashboard">
+          <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+          <input type="hidden" name="dashboard_filter" value="faible">
+          <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+          <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+          <button type="submit" style="width: 100%; text-align: left; background: transparent; border: none; color: inherit; cursor: pointer; padding: 0;">
+            <div style="font-size: 0.85em; color: #64748b; text-transform: uppercase;">Stock faible (≤3)</div>
+            <div style="font-size: 2.05em; font-weight: 700; margin-top: 4px; color: #f59e0b;"><?php echo $stats['stock_faible']; ?></div>
+          </button>
+        </form>
+      </td>
+    </tr>
+    </table>
+
+    <h2 style="font-size: 1.7em; font-family: Georgia, 'Times New Roman', serif; font-weight: 700; margin: 24px 0 20px; letter-spacing: 0.02em;">
+      <?php
+        if ($dashboard_filter === 'rupture') echo 'Produits en rupture';
+        elseif ($dashboard_filter === 'faible') echo 'Produits à stock faible (≤3)';
+        else echo 'Tous les produits';
+      ?>
+      <?php if ($selected_category_name !== ''): ?>
+        — Catégorie : <?php echo htmlspecialchars($selected_category_name); ?>
+      <?php endif; ?>
+    </h2>
+
+    <table width="100%" border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse;">
+    <tr bgcolor="#1e2435">
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Photo</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Réf.</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Désignation</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Marque</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Prix</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Stock</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Vente</th>
+    </tr>
+    
+    <?php foreach ($filtered_produits as $p):
+      $product_image_url = resolveProductImageUrl($p['photo']);
+      $stock_class = $p['quantite'] == 0 ? 'stock-zero' : ($p['quantite'] <= 3 ? 'stock-low' : 'stock-ok');
+    ?>
+    <tr
+      style="border-bottom: 1px solid #2a3045; cursor: pointer;"
+      onclick="openProductModal(this)"
+      data-id="<?php echo intval($p['id']); ?>"
+      data-reference="<?php echo htmlspecialchars($p['reference'], ENT_QUOTES); ?>"
+      data-designation="<?php echo htmlspecialchars($p['designation'], ENT_QUOTES); ?>"
+      data-marque="<?php echo htmlspecialchars($p['marque'], ENT_QUOTES); ?>"
+      data-prix="<?php echo htmlspecialchars(number_format($p['prix'], 2, '.', ''), ENT_QUOTES); ?>"
+      data-quantite="<?php echo intval($p['quantite']); ?>"
+      data-category-id="<?php echo intval($p['categorie_id']); ?>"
+      data-categorie="<?php echo htmlspecialchars($p['cat_nom'], ENT_QUOTES); ?>"
+      data-description="<?php echo htmlspecialchars((string)$p['description'], ENT_QUOTES); ?>"
+      data-image-url="<?php echo htmlspecialchars($product_image_url, ENT_QUOTES); ?>"
+    >
+      <td style="border: 1px solid #2a3045; padding: 12px 14px;"><img src="<?php echo htmlspecialchars($product_image_url); ?>" width="52" height="52" style="border-radius: 6px; background: #1e2435;"></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;"><code style="font-size: 0.78em; color: #64748b;"><?php echo htmlspecialchars($p['reference']); ?></code></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;"><?php echo htmlspecialchars($p['designation']); ?></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;"><?php echo htmlspecialchars($p['marque']); ?></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;"><b><?php echo number_format($p['prix'], 2); ?> DT</b></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;"><span class="<?php echo $stock_class; ?>" style="display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.78em; font-weight: 600;"><?php echo $p['quantite']; ?></span></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;" onclick="event.stopPropagation();">
+        <?php if ($p['quantite'] > 0): ?>
+        <form method="POST" action="index.php" style="display: flex; gap: 6px; align-items: center;">
+          <input type="hidden" name="action" value="update_stock">
+          <input type="hidden" name="id" value="<?php echo $p['id']; ?>">
+          <input type="hidden" name="tab" value="dashboard">
+          <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+          <?php if ($dashboard_filter !== 'all'): ?><input type="hidden" name="dashboard_filter" value="<?php echo htmlspecialchars($dashboard_filter); ?>"><?php endif; ?>
+          <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+          <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+          <input type="number" name="quantite_vendue" min="1" max="<?php echo $p['quantite']; ?>" value="1" style="width: 50px; padding: 4px 8px; background: #0d0f14; border: 1px solid #2a3045; border-radius: 8px; color: #e2e8f0; font-size: 0.75em;">
+          <button type="submit" style="background: #ef4444; color: #fff; border: none; padding: 3px 8px; border-radius: 8px; cursor: pointer; font-size: 0.75em;">- Vente</button>
+        </form>
+        <?php else: ?>
+        <span style="color: #ef4444; font-size: 0.8em;">Rupture</span>
+        <?php endif; ?>
+      </td>
+    </tr>
+    <?php endforeach; ?>
+    </table>
+
+    <?php elseif ($active_tab === 'produits'): ?>
+    <table width="100%" border="0" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="left"><h2 style="font-size: 2em; font-weight: 600; margin: 0;">Produits<?php if ($selected_category_name !== ''): ?> — Catégorie : <?php echo htmlspecialchars($selected_category_name); ?><?php endif; ?></h2></td>
+      <td align="right">
+        <form method="POST" action="index.php" style="display: inline;">
+          <input type="hidden" name="tab" value="produits">
+          <input type="hidden" name="show_add_produit" value="1">
+          <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+          <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+          <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+          <button type="submit" style="background: #3b82f6; color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.875em;">+ Nouveau produit</button>
+        </form>
+      </td>
+    </tr>
+    </table>
+
+    <?php if ($show_add_product_form): ?>
+    <form method="POST" action="index.php" enctype="multipart/form-data" style="margin: 14px 0 14px; padding: 12px; border: 1px solid #2a3045; border-radius: 8px; background: #161a23;">
+      <input type="hidden" name="action" value="add_produit">
+      <input type="hidden" name="tab" value="produits">
+      <input type="hidden" name="show_add_produit" value="1">
+      <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+      <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+      <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+
+      <div style="margin-bottom: 8px; font-size: 0.8em; color: #64748b;">
+        La photo est optionnelle. Si aucune image n'est fournie, "no image yet" sera affiché.
+      </div>
+
+      <table width="100%" border="0" cellpadding="4" cellspacing="0">
+      <tr>
+        <td width="16%"><input type="text" name="reference" required placeholder="Référence" style="width: 100%; box-sizing: border-box; padding: 7px 9px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;"></td>
+        <td width="18%"><input type="text" name="designation" required placeholder="Désignation" style="width: 100%; box-sizing: border-box; padding: 7px 9px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;"></td>
+        <td width="16%"><input type="text" name="marque" placeholder="Marque" style="width: 100%; box-sizing: border-box; padding: 7px 9px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;"></td>
+        <td width="14%"><input type="number" name="prix" min="0.01" step="0.01" required placeholder="Prix" style="width: 100%; box-sizing: border-box; padding: 7px 9px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;"></td>
+        <td width="12%"><input type="number" name="quantite" min="0" value="0" placeholder="Stock" style="width: 100%; box-sizing: border-box; padding: 7px 9px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;"></td>
+        <td width="24%">
+          <select name="categorie_id" required style="width: 100%; box-sizing: border-box; padding: 7px 9px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;">
+            <option value="">Catégorie...</option>
+            <?php foreach ($categories as $cat): ?>
+              <option value="<?php echo intval($cat['id']); ?>" <?php echo ($selected_category_id === intval($cat['id']) ? 'selected' : ''); ?>><?php echo htmlspecialchars($cat['nom']); ?></option>
+            <?php endforeach; ?>
+          </select>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="3"><input type="text" name="description" placeholder="Description (optionnel)" style="width: 100%; box-sizing: border-box; padding: 7px 9px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;"></td>
+        <td colspan="2"><input type="file" name="photo" accept="image/*" style="width: 100%; box-sizing: border-box; padding: 6px 8px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;"></td>
+        <td><button type="submit" style="width: 100%; background: #3b82f6; color: #fff; border: none; padding: 8px 11px; border-radius: 8px; cursor: pointer; font-size: 0.86em;">+ Ajouter produit</button></td>
+      </tr>
+      </table>
+    </form>
+    <?php endif; ?>
+
+    <form method="POST" action="index.php" data-auto-submit-form="1" style="margin: 14px 0 10px;">
+      <input type="hidden" name="tab" value="produits">
+      <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+      <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+      <input type="text" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>" placeholder="Rechercher..." data-auto-submit="search" style="padding: 5px 7px; width: 200px; background: #0d0f14; border: 1px solid #2a3045; border-radius: 8px; color: #e2e8f0; margin-right: 6px;">
+      <span style="font-size: 0.82em; color: #64748b; margin-right: 6px;">Choix tri</span>
+      <select name="sort_choice" data-auto-submit="sort" style="padding: 5px 7px; background: #0d0f14; border: 1px solid #2a3045; border-radius: 8px; color: #e2e8f0;">
+        <option value="designation_asc" <?php echo ($sort_choice === 'designation_asc' ? 'selected' : ''); ?>>A-Z</option>
+        <option value="designation_desc" <?php echo ($sort_choice === 'designation_desc' ? 'selected' : ''); ?>>Z-A</option>
+        <option value="prix_asc" <?php echo ($sort_choice === 'prix_asc' ? 'selected' : ''); ?>>Prix croissant</option>
+        <option value="prix_desc" <?php echo ($sort_choice === 'prix_desc' ? 'selected' : ''); ?>>Prix décroissant</option>
+        <option value="marque_asc" <?php echo ($sort_choice === 'marque_asc' ? 'selected' : ''); ?>>Marque A-Z</option>
+        <option value="marque_desc" <?php echo ($sort_choice === 'marque_desc' ? 'selected' : ''); ?>>Marque Z-A</option>
+        <option value="quantite_asc" <?php echo ($sort_choice === 'quantite_asc' ? 'selected' : ''); ?>>Stock croissant</option>
+        <option value="quantite_desc" <?php echo ($sort_choice === 'quantite_desc' ? 'selected' : ''); ?>>Stock décroissant</option>
+      </select>
+    </form>
+
+    <table width="100%" border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse; margin-top: 20px;">
+    <tr bgcolor="#1e2435">
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Réf.</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Désignation</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Marque</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Prix</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Stock</th>
+      <th align="left" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; border: 1px solid #2a3045;">Actions</th>
+    </tr>
+    
+    <?php foreach ($filtered_produits as $p):
+      $product_image_url = resolveProductImageUrl($p['photo']);
+      $stock_class = $p['quantite'] == 0 ? 'stock-zero' : ($p['quantite'] <= 3 ? 'stock-low' : 'stock-ok');
+    ?>
+    <tr
+      style="border-bottom: 1px solid #2a3045; cursor: pointer;"
+      onclick="openProductModal(this)"
+      data-id="<?php echo intval($p['id']); ?>"
+      data-reference="<?php echo htmlspecialchars($p['reference'], ENT_QUOTES); ?>"
+      data-designation="<?php echo htmlspecialchars($p['designation'], ENT_QUOTES); ?>"
+      data-marque="<?php echo htmlspecialchars($p['marque'], ENT_QUOTES); ?>"
+      data-prix="<?php echo htmlspecialchars(number_format($p['prix'], 2, '.', ''), ENT_QUOTES); ?>"
+      data-quantite="<?php echo intval($p['quantite']); ?>"
+      data-category-id="<?php echo intval($p['categorie_id']); ?>"
+      data-categorie="<?php echo htmlspecialchars($p['cat_nom'], ENT_QUOTES); ?>"
+      data-description="<?php echo htmlspecialchars((string)$p['description'], ENT_QUOTES); ?>"
+      data-image-url="<?php echo htmlspecialchars($product_image_url, ENT_QUOTES); ?>"
+    >
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;"><code style="font-size: 0.78em; color: #64748b;"><?php echo htmlspecialchars($p['reference']); ?></code></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;"><?php echo htmlspecialchars($p['designation']); ?></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;"><?php echo htmlspecialchars($p['marque']); ?></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;"><b><?php echo number_format($p['prix'], 2); ?> DT</b></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;"><span class="<?php echo $stock_class; ?>" style="display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.78em; font-weight: 600;"><?php echo $p['quantite']; ?></span></td>
+      <td style="border: 1px solid #2a3045; padding: 10px 12px;" onclick="event.stopPropagation();">
+        <button type="button" onclick="openEditProductModal(this)" style="background: #3b82f6; color: #fff; border: none; padding: 4px 10px; border-radius: 8px; cursor: pointer; font-size: 0.8em; margin-right: 6px;">Modifier</button>
+        <form method="POST" action="index.php" style="display: inline-block;" onsubmit="return confirm('Êtes-vous sûr ?');">
+          <input type="hidden" name="action" value="delete_produit">
+          <input type="hidden" name="id" value="<?php echo $p['id']; ?>">
+          <input type="hidden" name="tab" value="produits">
+          <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+          <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+          <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+          <button type="submit" style="background: #ef4444; color: #fff; border: none; padding: 4px 10px; border-radius: 8px; cursor: pointer; font-size: 0.8em;">Supprimer</button>
+        </form>
+      </td>
+    </tr>
+    <?php endforeach; ?>
+    </table>
+
+    <div id="productEditModal" style="display: none; position: fixed; inset: 0; z-index: 10000; background: rgba(13,15,20,.72); backdrop-filter: blur(6px); padding: 24px; box-sizing: border-box; overflow: auto;">
+      <div style="max-width: 920px; margin: 4vh auto 24px; background: #161a23; border: 1px solid #2a3045; border-radius: 18px; overflow: hidden; box-shadow: 0 24px 70px rgba(0,0,0,.45);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #2a3045;">
+          <div>
+            <div style="font-size: 0.75em; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em;">Modifier produit</div>
+            <div id="productEditTitle" style="font-size: 1.35em; font-weight: 700; color: #e2e8f0; margin-top: 4px;"></div>
+          </div>
+          <button type="button" onclick="closeProductEditModal()" style="background: none; border: 1px solid #2a3045; color: #e2e8f0; width: 36px; height: 36px; border-radius: 999px; cursor: pointer; font-size: 1.1em; line-height: 1;">&times;</button>
+        </div>
+        <form id="productEditForm" method="POST" action="index.php" enctype="multipart/form-data" style="padding: 18px 20px 20px;">
+          <input type="hidden" name="action" value="update_produit">
+          <input type="hidden" name="id" id="productEditId" value="">
+          <input type="hidden" name="tab" value="produits">
+          <input type="hidden" name="sort_choice" value="<?php echo htmlspecialchars($sort_choice); ?>">
+          <input type="hidden" name="search_term" value="<?php echo htmlspecialchars($search_term); ?>">
+          <?php if ($selected_category_id > 0): ?><input type="hidden" name="categorie_filter" value="<?php echo $selected_category_id; ?>"><?php endif; ?>
+
+          <div style="display: grid; grid-template-columns: 1fr 280px; gap: 18px; align-items: start;">
+            <div style="display: grid; gap: 12px;">
+              <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;">
+                <input type="text" name="reference" id="productEditReference" required placeholder="Référence" style="width: 100%; box-sizing: border-box; padding: 9px 10px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;">
+                <input type="text" name="designation" id="productEditDesignation" required placeholder="Désignation" style="width: 100%; box-sizing: border-box; padding: 9px 10px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;">
+                <input type="text" name="marque" id="productEditMarque" placeholder="Marque" style="width: 100%; box-sizing: border-box; padding: 9px 10px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;">
+                <input type="number" name="prix" id="productEditPrix" min="0.01" step="0.01" required placeholder="Prix" style="width: 100%; box-sizing: border-box; padding: 9px 10px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;">
+                <input type="number" name="quantite" id="productEditQuantite" min="0" required placeholder="Quantité" style="width: 100%; box-sizing: border-box; padding: 9px 10px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;">
+                <select name="categorie_id" id="productEditCategory" required style="width: 100%; box-sizing: border-box; padding: 9px 10px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;">
+                  <option value="">Catégorie...</option>
+                  <?php foreach ($categories as $cat): ?>
+                    <option value="<?php echo intval($cat['id']); ?>"><?php echo htmlspecialchars($cat['nom']); ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <textarea name="description" id="productEditDescription" placeholder="Description" rows="6" style="width: 100%; box-sizing: border-box; padding: 9px 10px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px; resize: vertical;"></textarea>
+              <div style="font-size: 0.82em; color: #64748b;">L'image est optionnelle. Si tu en envoies une nouvelle, elle remplacera l'ancienne.</div>
+              <input type="file" name="photo" accept="image/*" style="width: 100%; box-sizing: border-box; padding: 8px 9px; background: #0d0f14; border: 1px solid #2a3045; color: #e2e8f0; border-radius: 8px;">
+            </div>
+            <div>
+              <img id="productEditImage" alt="Produit" style="width: 100%; max-height: 360px; object-fit: contain; background: #0d0f14; border: 1px solid #2a3045; border-radius: 16px; display: block; margin-bottom: 12px;">
+              <div style="display: grid; gap: 8px; font-size: 0.88em; color: #64748b;">
+                <div><b style="color: #e2e8f0;">ID:</b> <span id="productEditIdLabel"></span></div>
+                <div><b style="color: #e2e8f0;">Catégorie actuelle:</b> <span id="productEditCategoryLabel"></span></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px;">
+            <button type="button" onclick="closeProductEditModal()" style="background: transparent; color: #e2e8f0; border: 1px solid #2a3045; padding: 8px 14px; border-radius: 8px; cursor: pointer;">Annuler</button>
+            <button type="submit" style="background: #3b82f6; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 600;">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <?php endif; ?>
+
+  </td>
+</tr>
+</table>
+
+<div id="productModal" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(13,15,20,.72); backdrop-filter: blur(6px); padding: 24px; box-sizing: border-box;">
+  <div style="max-width: 860px; margin: 6vh auto 0; background: #161a23; border: 1px solid #2a3045; border-radius: 18px; overflow: hidden; box-shadow: 0 24px 70px rgba(0,0,0,.45);">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #2a3045;">
+      <div>
+        <div id="productModalCategory" style="font-size: 0.75em; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em;">Produit</div>
+        <div id="productModalTitle" style="font-size: 1.35em; font-weight: 700; color: #e2e8f0; margin-top: 4px;"></div>
+      </div>
+      <button type="button" onclick="closeProductModal()" style="background: none; border: 1px solid #2a3045; color: #e2e8f0; width: 36px; height: 36px; border-radius: 999px; cursor: pointer; font-size: 1.1em; line-height: 1;">&times;</button>
+    </div>
+    <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 0;">
+      <div style="padding: 20px; border-right: 1px solid #2a3045;">
+        <img id="productModalImage" alt="Produit" style="width: 100%; max-height: 460px; object-fit: contain; background: #0d0f14; border: 1px solid #2a3045; border-radius: 16px; display: block;" />
+      </div>
+      <div style="padding: 20px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: grid; grid-template-columns: 120px 1fr; gap: 10px; font-size: 0.95em;">
+          <div style="color: #64748b;">Référence</div><div id="productModalReference" style="color: #e2e8f0;"></div>
+          <div style="color: #64748b;">Marque</div><div id="productModalMarque" style="color: #e2e8f0;"></div>
+          <div style="color: #64748b;">Prix</div><div id="productModalPrix" style="color: #e2e8f0; font-weight: 700;"></div>
+          <div style="color: #64748b;">Stock</div><div id="productModalStock" style="color: #e2e8f0;"></div>
+        </div>
+        <div>
+          <div style="font-size: 0.78em; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px;">Description</div>
+          <div id="productModalDescription" style="color: #cbd5e1; font-size: 0.95em; line-height: 1.55; white-space: pre-wrap; min-height: 120px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div id="php-data" data-skip-search-focus="<?php echo ($show_add_category_form || $show_add_product_form) ? '1' : '0'; ?>" data-error-message="<?php echo ($message_type === 'error' && $message !== '') ? htmlspecialchars($message, ENT_QUOTES, 'UTF-8') : ''; ?>" style="display:none;" aria-hidden="true"></div>
+<script src="app.js"></script>
+
+</body>
+</html>
